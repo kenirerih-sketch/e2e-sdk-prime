@@ -3,10 +3,22 @@ dotenv.config(); // init dotenv
 import { PrimeSdk, EtherspotBundler } from '@etherspot/prime-sdk';
 import { ethers, utils, providers } from 'ethers';
 import { assert } from 'chai';
-import { ERC20_ABI } from '@etherspot/prime-sdk/dist/sdk/helpers/abi/ERC20_ABI.js';
 import addContext from 'mochawesome/addContext.js';
 import customRetryAsync from '../../utils/baseTest.js';
 import data from '../../data/testData.json' assert { type: 'json' };
+
+const ERC20_ABI = [
+  'function transfer(address to, uint256 amount) returns (bool)',
+  'function balanceOf(address account) external view returns (uint256)',
+  'function allowance(address owner, address spender) external view returns (uint256)',
+  'function approve(address spender, uint256 amount) external returns (bool)',
+  'function transferFrom(address from, address to, uint256 amount) external returns (bool)',
+  'function decimals() external view returns (uint8)',
+  'function symbol() external view returns (string)',
+  'function name() external view returns (string)',
+  'event Transfer(address indexed from, address indexed to, uint256 value)',
+  'event Approval(address indexed owner, address indexed spender, uint256 value)',
+];
 
 let arbitrumMainNetSdk;
 

@@ -27,7 +27,7 @@
     "@babel/eslint-parser": "^7.22.9",
     "@babel/plugin-syntax-import-assertions": "^7.22.5",
     "@etherspot/contracts": "^2.0.1",
-    "@etherspot/prime-sdk": "file:./etherspot-prime-sdk",
+    "@etherspot/prime-sdk": "file:./etherspot-prime-sdk-1.9.2.tgz",
     "@reactivex/rxjs": "^6.6.7",
     "axios": "^1.4.0",
     "chai": "^4.3.7",

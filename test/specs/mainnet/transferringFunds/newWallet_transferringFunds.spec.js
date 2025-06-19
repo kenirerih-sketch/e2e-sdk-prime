@@ -1,9 +1,8 @@
 import * as dotenv from 'dotenv';
 dotenv.config(); // init dotenv
-import { PrimeSdk, DataUtils, EtherspotBundler } from '@etherspot/prime-sdk';
-import { ethers, utils, providers,BigNumber } from 'ethers';
+import { PrimeSdk, EtherspotBundler } from '@etherspot/prime-sdk';
+import { ethers, utils, providers, BigNumber } from 'ethers';
 import { assert } from 'chai';
-import { ERC20_ABI } from '@etherspot/prime-sdk/dist/sdk/helpers/abi/ERC20_ABI.js';
 import addContext from 'mochawesome/addContext.js';
 import { customRetryAsync } from '../../../utils/baseTest.js';
 import {
@@ -28,9 +27,20 @@ import path from 'path';
 
 let mainnetPrimeSdk;
 let nativeAddress = null;
-let dataService;
 let runTest;
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const ERC20_ABI = [
+  'function transfer(address to, uint256 amount) returns (bool)',
+  'function balanceOf(address account) external view returns (uint256)',
+  'function allowance(address owner, address spender) external view returns (uint256)',
+  'function approve(address spender, uint256 amount) external returns (bool)',
+  'function transferFrom(address from, address to, uint256 amount) external returns (bool)',
+  'function decimals() external view returns (uint8)',
+  'function symbol() external view returns (string)',
+  'function name() external view returns (string)',
+  'event Transfer(address indexed from, address indexed to, uint256 value)',
+  'event Approval(address indexed owner, address indexed spender, uint256 value)',
+];
 
 describe('Perform the transaction of the tokens on the MainNet (with new wallet)', function () {
   before(async function () {
@@ -58,41 +68,42 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
         addContext(test, eString);
         assert.fail(message.fail_sdk_initialize);
       }
-
-      // initializating Data service...
-      try {
-        dataService = new DataUtils(process.env.BUNDLER_API_KEY);
-      } catch (e) {
-        console.error(e);
-        const eString = e.toString();
-        addContext(test, eString);
-        assert.fail(message.fail_data_service);
-      }
     }, data.retry); // Retry this async test up to 5 times
   });
 
   beforeEach(async function () {
     // validate the balance of the wallet
     try {
-      let output = await dataService.getAccountBalances({
-        account: data.sender,
-        chainId: Number(randomChainId),
-      });
-      let native_balance;
-      let usdc_balance;
-      let native_final;
-      let usdc_final;
+      // let output = await dataService.getAccountBalances({
+      //   account: data.sender,
+      //   chainId: Number(randomChainId),
+      // });
+      // let native_balance;
+      // let usdc_balance;
+      // let native_final;
+      // let usdc_final;
 
-      for (let i = 0; i < output.items.length; i++) {
-        let tokenAddress = output.items[i].token;
-        if (tokenAddress === nativeAddress) {
-          native_balance = output.items[i].balance;
-          native_final = utils.formatUnits(native_balance, 18);
-        } else if (tokenAddress === randomTokenAddress) {
-          usdc_balance = output.items[i].balance;
-          usdc_final = utils.formatUnits(usdc_balance, 6);
-        }
-      }
+      // for (let i = 0; i < output.items.length; i++) {
+      //   let tokenAddress = output.items[i].token;
+      //   if (tokenAddress === nativeAddress) {
+      //     native_balance = output.items[i].balance;
+      //     native_final = utils.formatUnits(native_balance, 18);
+      //   } else if (tokenAddress === randomTokenAddress) {
+      //     usdc_balance = output.items[i].balance;
+      //     usdc_final = utils.formatUnits(usdc_balance, 6);
+      //   }
+      // }
+
+      const native_balance = await mainnetPrimeSdk.getNativeBalance();
+      const provider = new ethers.providers.JsonRpcProvider(
+        randomProviderNetwork
+      );
+      const Contract = new ethers.Contract(randomTokenAddress, ERC20_ABI, provider);
+
+      const usdc_balance = await Contract.balanceOf(data.sender);
+      const native_final = native_balance;
+      const usdc_final = utils.formatUnits(usdc_balance, 6);
+
 
       if (
         native_final > data.minimum_native_balance &&
@@ -112,8 +123,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'SMOKE: Perform the transfer native token with valid details on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       let op;
@@ -402,8 +413,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'SMOKE: Perform the transfer ERC20 token with valid details on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       let op;
@@ -682,9 +693,9 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
         // sign the UserOp and sending to the bundler
         let uoHash;
         try {
-            await customRetryAsync(async function () {
+          await customRetryAsync(async function () {
             uoHash = await mainnetPrimeSdk.send(op);
-            }, data.retry);
+          }, data.retry);
 
           try {
             assert.isNotEmpty(uoHash, message.vali_submitTransaction_uoHash);
@@ -744,8 +755,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'SMOKE: Perform the transfer ERC721 NFT token with valid details on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       let op;
@@ -972,9 +983,9 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
         // sending to the bundler
         let uoHash;
         try {
-            await customRetryAsync(async function () {
+          await customRetryAsync(async function () {
             uoHash = await mainnetPrimeSdk.send(op);
-            }, data.retry);
+          }, data.retry);
 
           try {
             assert.isNotEmpty(uoHash, message.vali_submitTransaction_uoHash);
@@ -1034,8 +1045,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'SMOKE: Perform the concurrent userops with valid details on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       // NOTE: assume the sender wallet is deployed
 
@@ -1197,8 +1208,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer native token with the incorrect To Address while estimate the added transactions to the batch on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -1264,8 +1275,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer native token with the invalid To Address i.e. missing character while estimate the added transactions to the batch on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -1331,8 +1342,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer native token with the invalid Value while estimate the added transactions to the batch on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -1377,8 +1388,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer native token with the very small Value while estimate the added transactions to the batch on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -1423,8 +1434,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer native token without adding transaction to the batch while estimate the added transactions to the batch on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -1477,8 +1488,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC20 token with invalid provider netowrk details while Getting the Decimal from ERC20 Contract on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -1545,8 +1556,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC20 token without provider netowrk details while Getting the Decimal from ERC20 Contract on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -1611,8 +1622,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC20 token with other provider netowrk details while Getting the Decimal from ERC20 Contract on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -1679,8 +1690,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC20 token with incorrect Token Address details while Getting the Decimal from ERC20 Contract on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -1747,8 +1758,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC20 token with invalid Token Address i.e. missing character details while Getting the Decimal from ERC20 Contract on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -1815,8 +1826,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC20 token with null Token Address details while Getting the Decimal from ERC20 Contract on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -1862,8 +1873,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC20 token with incorrect transfer method name while Getting the transferFrom encoded data on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -1930,8 +1941,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC20 token with invalid value while Getting the transferFrom encoded data on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -1998,8 +2009,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC20 token with very small value while Getting the transferFrom encoded data on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -2063,8 +2074,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC20 token without value while Getting the transferFrom encoded data on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -2127,8 +2138,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC20 token with incorrect recipient while Getting the transferFrom encoded data on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -2196,8 +2207,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC20 token with invalid recipient i.e. missing character while Getting the transferFrom encoded data on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -2265,8 +2276,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC20 token without recipient while Getting the transferFrom encoded data on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -2332,8 +2343,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC20 token with the incorrect Token Address while adding transactions to the batch on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -2438,8 +2449,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC20 token with the invalid Token Address i.e. missing character while adding transactions to the batch on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -2544,8 +2555,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC20 token with the null Token Address while adding transactions to the batch on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -2649,8 +2660,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC20 token without Token Address while adding transactions to the batch on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -2753,8 +2764,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC20 token without adding transaction to the batch while estimate the added transactions to the batch on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -2840,8 +2851,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC721 NFT token with incorrect Sender Address while creating the NFT Data on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -2881,8 +2892,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC721 NFT token with invalid Sender Address i.e. missing character while creating the NFT Data on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -2922,8 +2933,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC721 NFT token without Sender Address while creating the NFT Data on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -2962,8 +2973,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC721 NFT token with incorrect Recipient Address while creating the NFT Data on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -3003,8 +3014,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC721 NFT token with invalid Recipient Address i.e. missing character while creating the NFT Data on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -3044,8 +3055,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC721 NFT token without Recipient Address while creating the NFT Data on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -3084,8 +3095,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC721 NFT token with incorrect tokenId while creating the NFT Data on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -3125,8 +3136,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC721 NFT token without tokenId while creating the NFT Data on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -3165,8 +3176,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the transfer ERC721 NFT Token without adding transaction to the batch while estimate the added transactions to the batch on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
@@ -3236,8 +3247,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the concurrent userops with invalid concurrentUseropsCount on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       // NOTE: assume the sender wallet is deployed
 
@@ -3357,8 +3368,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the concurrent userops without concurrentUseropsCount on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       // NOTE: assume the sender wallet is deployed
 
@@ -3478,8 +3489,8 @@ describe('Perform the transaction of the tokens on the MainNet (with new wallet)
 
   it(
     'REGRESSION: Perform the concurrent userops with non deployed address on the ' +
-      randomChainName +
-      ' network',
+    randomChainName +
+    ' network',
     async function () {
       var test = this;
       if (runTest) {
