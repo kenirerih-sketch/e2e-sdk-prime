@@ -1,3 +1,6 @@
+import * as dotenv from 'dotenv';
+dotenv.config(); // init dotenv
+
 // chain configurations
 const chainConfigs = {
   100: {
@@ -17,9 +20,9 @@ const chainConfigs = {
     tokenNameUsdt: 'USDT',
     incorrectTokenAddressUsdt: '0xAECDBa5770353855a9F068104A40E0f32e2605C6',
     invalidTokenAddressUsdt: '0x4ECaBa5870353805a9F068101A40E0f32ed605C',
-    providerNetwork: 'https://rpc.etherspot.io/gnosis',
-    invalidProviderNetwork: 'http://rpc.etherspot.io/gnosis',
-    otherProviderNetwork: 'https://rpc.etherspot.io/polygon',
+    providerNetwork: `https://rpc.etherspot.io/v1/100?api-key=${process.env.BUNDLER_API_KEY}`,
+    invalidProviderNetwork: `https://rpc.etherspot.io/v1/100?api-key=${process.env.BUNDLER_API_KEY}`,
+    otherProviderNetwork: `https://rpc.etherspot.io/v1/137?api-key=${process.env.BUNDLER_API_KEY}`,
   },
   // 137: {
   //   name: 'polygon',

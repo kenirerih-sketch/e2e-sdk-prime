@@ -1,6 +1,6 @@
 import * as dotenv from 'dotenv';
 dotenv.config(); // init dotenv
-import { PrimeSdk, DataUtils, EtherspotBundler } from '@etherspot/prime-sdk';
+import { PrimeSdk, EtherspotBundler } from '@etherspot/prime-sdk';
 import { ethers, utils } from 'ethers';
 import { assert } from 'chai';
 import addContext from 'mochawesome/addContext.js';
@@ -9,6 +9,7 @@ import {
   randomChainId,
   randomChainName,
   randomTokenAddress,
+  randomProviderNetwork
 } from '../../../utils/sharedData_mainnet.js';
 import helper from '../../../utils/helper.js';
 import axios from 'axios';
@@ -23,9 +24,20 @@ import path from 'path';
 let mainnetPrimeSdk;
 let etherspotWalletAddress;
 let nativeAddress = null;
-let dataService;
 let runTest;
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const ERC20_ABI = [
+  'function transfer(address to, uint256 amount) returns (bool)',
+  'function balanceOf(address account) external view returns (uint256)',
+  'function allowance(address owner, address spender) external view returns (uint256)',
+  'function approve(address spender, uint256 amount) external returns (bool)',
+  'function transferFrom(address from, address to, uint256 amount) external returns (bool)',
+  'function decimals() external view returns (uint8)',
+  'function symbol() external view returns (string)',
+  'function name() external view returns (string)',
+  'event Transfer(address indexed from, address indexed to, uint256 value)',
+  'event Approval(address indexed owner, address indexed spender, uint256 value)',
+];
 
 describe('Perform the transaction with arka paymasters on the MainNet (with new wallet)', function () {
   before(async function () {
@@ -64,41 +76,21 @@ describe('Perform the transaction with arka paymasters on the MainNet (with new 
         addContext(test, eString);
         assert.fail(message.fail_smart_address);
       }
-
-      // initializating Data service...
-      try {
-        dataService = new DataUtils(process.env.BUNDLER_API_KEY);
-      } catch (e) {
-        console.error(e);
-        const eString = e.toString();
-        addContext(test, eString);
-        assert.fail(message.fail_data_service);
-      }
     }, data.retry); // Retry this async test up to 5 times
   });
 
   beforeEach(async function () {
     // validate the balance of the wallet
     try {
-      let output = await dataService.getAccountBalances({
-        account: data.sender,
-        chainId: Number(randomChainId),
-      });
-      let native_balance;
-      let usdc_balance;
-      let native_final;
-      let usdc_final;
+      const native_balance = await mainnetPrimeSdk.getNativeBalance();
+      const provider = new ethers.providers.JsonRpcProvider(
+        randomProviderNetwork
+      );
+      const Contract = new ethers.Contract(randomTokenAddress, ERC20_ABI, provider);
 
-      for (let i = 0; i < output.items.length; i++) {
-        let tokenAddress = output.items[i].token;
-        if (tokenAddress === nativeAddress) {
-          native_balance = output.items[i].balance;
-          native_final = utils.formatUnits(native_balance, 18);
-        } else if (tokenAddress === randomTokenAddress) {
-          usdc_balance = output.items[i].balance;
-          usdc_final = utils.formatUnits(usdc_balance, 6);
-        }
-      }
+      const usdc_balance = await Contract.balanceOf(data.sender);
+      const native_final = native_balance;
+      const usdc_final = utils.formatUnits(usdc_balance, 6);
 
       if (
         native_final > data.minimum_native_balance &&
